@@ -1,4 +1,5 @@
 from datasets import load_dataset
+import pandas as pd
 import re
 
 def clean_text(text):
@@ -27,32 +28,45 @@ def change_rating(df, new_class_col):
     """Change 1-5 rating to negative, neutral, positive"""
     df[new_class_col] = df['rating'].map(
         {
-            5.0: 'positive',
-            4.0: 'positive',
-            3.0: 'neutral',
-            2.0: 'negative',
-            1.0: 'negative',
+            5.0: 0,
+            4.0: 0,
+            3.0: 1,
+            2.0: 2,
+            1.0: 2,
         }
     )
     return df
 
 
 def balance_ratings(df, class_col='sentiment'):
-    g = df.groupby(class_col)
-    df = g.apply(lambda x:
-                 x.sample(g.size().min()).reset_index(drop=True),
-                 include_groups=False)
-    return df
+    """Downsample all classes to the size of the minority class"""
+    min_size = df[class_col].value_counts().min()
+
+    # Sample min_size from each class
+    balanced_dfs = []
+    for sentiment_class in df[class_col].unique():
+        class_df = df[df[class_col] == sentiment_class].sample(n=min_size, random_state=42)
+        balanced_dfs.append(class_df)
+
+    # Concatenate and shuffle
+    df_balanced = pd.concat(balanced_dfs, ignore_index=True).sample(frac=1, random_state=42)
+    return df_balanced
 
 
 def process_data(hf_dataset, split='train'):
 
     df = hf_dataset[split].to_pandas()
 
-    if df['text'].isnull().sum() > 0:
-        df.dropna(subset=['text'], inplace=True)
+    # Drop rows with null values in any column
+    df = df.dropna()
 
-    # Clean text (remove special chars, standardize whitespace)
+    # Drop rows with empty text (empty strings)
+    df = df[df['text'].str.strip() != '']
+
+    # Reset index after dropping rows
+    df = df.reset_index(drop=True)
+
+    # Clean text
     df = clean_dataframe(df, text_col='text')
 
     # Map ratings to sentiment categories
@@ -67,6 +81,8 @@ def process_data(hf_dataset, split='train'):
     # Clean up dataframe
     df = df.reset_index(drop=True)
     df = df.drop(['rating'], axis=1)
+
+    df.rename(columns={'text': 'text', 'sentiment': 'labels'}, inplace=True)
 
     # Save to CSV
     df.to_csv(f'../data/data_{split}.csv', index=False)

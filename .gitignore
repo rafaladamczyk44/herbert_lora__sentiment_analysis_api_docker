@@ -1,4 +1,6 @@
 .venv/
 .idea/
-plan.md
 data/
+models/
+wandb/
+plan.md
