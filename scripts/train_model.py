@@ -3,41 +3,7 @@ from peft import get_peft_model, LoraConfig, TaskType
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-
-# Tokenize the text
-def tokenize_function(examples):
-    texts = [str(text) if text is not None else "" for text in examples["text"]]
-    return tokenizer(
-        texts,
-        padding="max_length",
-        truncation=True,
-        max_length=512
-    )
-
-model_id = 'allegro/herbert-base-cased'
-num_labels = 3  # positive (0), neutral (1), negative (2)
-
-model = AutoModelForSequenceClassification.from_pretrained(
-    model_id,
-    num_labels=num_labels,
-    id2label={0: "positive", 1: "neutral", 2: "negative"},
-    label2id={"positive": 0, "neutral": 1, "negative": 2}
-)
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-dataset = load_dataset(
-    path='csv',
-    data_files={
-        'train': '../data/data_train.csv',
-        'validation': '../data/data_validation.csv',
-        'test': '../data/data_test.csv'
-    }
-)
-
-
-dataset = dataset.map(tokenize_function, batched=True)
-dataset = dataset.remove_columns(['text'])
-dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+from weighted_trainer import WeightedTrainer
 
 # Compute metrics function for evaluation
 def compute_metrics(eval_pred):
@@ -56,6 +22,43 @@ def compute_metrics(eval_pred):
         'recall': recall
     }
 
+
+# Tokenize the text
+def tokenize_function(examples):
+    texts = [str(text) if text is not None else "" for text in examples["text"]]
+    return tokenizer(
+        texts,
+        padding="max_length",
+        truncation=True,
+        max_length=512
+    )
+
+
+model_id = 'allegro/herbert-base-cased'
+
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_id,
+    num_labels=3, # positive (0), neutral (1), negative (2)
+    id2label={0: "positive", 1: "neutral", 2: "negative"},
+    label2id={"positive": 0, "neutral": 1, "negative": 2}
+)
+
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+dataset = load_dataset(
+    path='csv',
+    data_files={
+        'train': '../data/data_train.csv',
+        'validation': '../data/data_validation.csv',
+        'test': '../data/data_test.csv'
+    }
+)
+
+
+dataset = dataset.map(tokenize_function, batched=True)
+dataset = dataset.remove_columns(['text'])
+dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+
 lora_config = LoraConfig(
     task_type=TaskType.SEQ_CLS,  # Sequence Classification for sentiment analysis
     r=16,                          # Rank: number of dimensions in LoRA matrices
@@ -68,25 +71,45 @@ lora_config = LoraConfig(
 
 peft_model = get_peft_model(model, lora_config)
 
+# Verify LoRA adapters are added and trainable
+print("\n" + "="*60)
+print("VERIFYING LORA CONFIGURATION")
+print("="*60)
+peft_model.print_trainable_parameters()
+print("\nTrainable parameter details:")
+for name, param in peft_model.named_parameters():
+    if param.requires_grad:
+        print(f"  {name}: {param.shape} ({param.numel():,} params)")
+print("="*60 + "\n")
+
 training_args = TrainingArguments(
     output_dir='../models',
     overwrite_output_dir=True,
     eval_strategy='epoch',
     save_strategy='epoch',
+
     num_train_epochs=5,
+
     per_device_train_batch_size=4,
     per_device_eval_batch_size=4,
 
-    # Gradient clipping
-    max_grad_norm=1.0,
+    # Learning rate and optimization in v3
+    # Check lower lr, default is 5e-5
+    learning_rate=2e-4,
+    weight_decay=0.01,
+    warmup_steps=100,
+
+    # Gradient clipping in v2
+    max_grad_norm=0.5,  # Harder clip in v3
 
     # Weights & Biases integration
-    report_to="wandb",  # Enable W&B logging
-    run_name="herbert-lora-sentiment-v2",
-    logging_steps=50,  # Log every 50 steps
+    report_to="wandb",
+    run_name="herbert-lora-sentiment-v5-weighted",
+    logging_steps=50,
 )
 
-trainer = Trainer(
+# v5 - add weighted trainer instead of balancing the dataset
+trainer = WeightedTrainer(
     model=peft_model,
     args=training_args,
     train_dataset=dataset['train'],
