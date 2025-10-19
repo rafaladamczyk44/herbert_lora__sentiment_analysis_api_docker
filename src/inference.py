@@ -1,26 +1,58 @@
+from typing import Dict
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from peft import PeftModel
 import torch
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+CHECKPOINT_PATH = '../models/v5/checkpoint-11475'
+MODEL_ID = 'allegro/herbert-base-cased'
 
-model_id = 'allegro/herbert-base-cased'
+try:
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 
-tokenizer = AutoTokenizer.from_pretrained(model_id)
+    base_model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_ID,
+        num_labels=3,
+        id2label={0: "positive", 1: "neutral", 2: "negative"},
+        label2id={"positive": 0, "neutral": 1, "negative": 2}
+    )
+except Exception as e:
+    print(f'Failed to load HF model {e}')
+    raise
 
-base_model = AutoModelForSequenceClassification.from_pretrained(
-    model_id,
-    num_labels=3,
-    id2label={0: "positive", 1: "neutral", 2: "negative"},
-    label2id={"positive": 0, "neutral": 1, "negative": 2}
-)
 
 # Load LoRA adapters on top of base model
-model = PeftModel.from_pretrained(base_model, '../models/v2/checkpoint-4485')
+try:
+      model = PeftModel.from_pretrained(base_model,CHECKPOINT_PATH)
+      model.to(DEVICE)
+      model.eval()
+except Exception as e:
+      print(f'Failed to load LoRA checkpoint: {e}')
+      raise
 
-model.eval()
+def predict(text:str, max_len:int=512) -> Dict[str, float]:
 
-def predict(text):
-    inputs = tokenizer(text, return_tensors='pt')
+    if text is None or len(text) == 0:
+        return {
+            "text": 'Provide a valid string input',
+            'confidence': 0.0,
+        }
+
+    inputs = tokenizer(
+        text,
+        return_tensors='pt',
+        max_length=max_len,
+        truncation=True,
+        padding=True,
+    ).to(DEVICE)
+
+    if inputs['input_ids'].shape[1]  > 512:
+        return {
+            'text': f'Input text too long, max length is {max_len}',
+            'confidence': 0.0,
+        }
+
+
     with torch.no_grad():
         outputs = model(**inputs)
         logits = outputs.logits
