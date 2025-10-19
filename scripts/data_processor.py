@@ -73,13 +73,12 @@ def process_data(hf_dataset, split='train'):
     df = change_rating(df, 'sentiment')
 
     # Balance classes (downsample to minority class)
-
     print(f"Class distribution in {split} before balancing:\n{df['sentiment'].value_counts()}")
-    df = balance_ratings(df)
-    print(f"Class distribution after balancing:\n{df['sentiment'].value_counts()}")
-
-    # Clean up dataframe
-    df = df.reset_index(drop=True)
+    # df = balance_ratings(df)
+    # print(f"Class distribution after balancing:\n{df['sentiment'].value_counts()}")
+    #
+    # # Clean up dataframe
+    # df = df.reset_index(drop=True)
     df = df.drop(['rating'], axis=1)
 
     df.rename(columns={'text': 'text', 'sentiment': 'labels'}, inplace=True)
