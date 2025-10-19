@@ -2,9 +2,13 @@ from typing import Dict
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from peft import PeftModel
 import torch
+from pathlib import Path
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-CHECKPOINT_PATH = '../models/v5/checkpoint-11475'
+
+# Use absolute path relative to this file
+BASE_DIR = Path(__file__).resolve().parent.parent
+CHECKPOINT_PATH = str(BASE_DIR / 'models' / 'v5' / 'checkpoint-11475')
 MODEL_ID = 'allegro/herbert-base-cased'
 
 try:
