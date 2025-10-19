@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  sentiment-api:
+    build: .
+    ports:
+      - "6000:6000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount only the final model
+      - ./models/v5/checkpoint-11475:/app/models/
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

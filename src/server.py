@@ -3,8 +3,8 @@ from inference import predict
 from pydantic import BaseModel, Field, field_validator
 import uvicorn
 """
-http://localhost:8000/docs#/
-http://localhost:8000/docs#/Prediction/predict_sentiment_predict_post
+http://localhost:6000/docs#/
+http://localhost:6000/docs#/Prediction/predict_sentiment_predict_post
 """
 app = FastAPI(
     title="HerBERT Sentiment Analysis API",
@@ -52,7 +52,6 @@ class SentimentResponse(BaseModel):
 
 @app.get('/', tags=["General"])
 def home():
-    """Root endpoint with API information"""
     return {
         "message": "HerBERT Sentiment Analysis API",
         "version": "1.0.0",
@@ -78,4 +77,4 @@ async def predict_sentiment(sentiment_request: SentimentRequest):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=6000)

@@ -61,7 +61,7 @@ dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels
 
 lora_config = LoraConfig(
     task_type=TaskType.SEQ_CLS,  # Sequence Classification for sentiment analysis
-    r=16,                          # Rank: number of dimensions in LoRA matrices
+    r=8,                          # Rank: number of dimensions in LoRA matrices
     lora_alpha=32,                  # scaling
     target_modules=["query", "value"],  # HerBERT uses "query" and "value" (not "q", "v")
     lora_dropout=0.01,            # Dropout probability for LoRA layers
@@ -95,7 +95,7 @@ training_args = TrainingArguments(
 
     # Learning rate and optimization in v3
     # Check lower lr, default is 5e-5
-    learning_rate=2e-4,
+    learning_rate=5e-5,   # 2e-4,
     weight_decay=0.01,
     warmup_steps=100,
 
@@ -104,7 +104,7 @@ training_args = TrainingArguments(
 
     # Weights & Biases integration
     report_to="wandb",
-    run_name="herbert-lora-sentiment-v5-weighted",
+    run_name="herbert-lora-sentiment-v6-weighted",
     logging_steps=50,
 )
 
