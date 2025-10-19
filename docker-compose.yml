@@ -9,7 +9,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       # Mount only the final model
-      - ./models/v5/checkpoint-11475:/app/models/
+      - ./models/v5/checkpoint-11475:/./models/v5/checkpoint-11475
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6000/"]
